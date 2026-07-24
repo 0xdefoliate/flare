@@ -1,0 +1,16 @@
+[project]
+name = "flare"
+description = "Read Flarum discussions in your Terminal"
+
+authors = [
+    { name = "Axel H. Karlsson", email = "git@axelkarlsson.se" }
+]
+
+requires-python = ">=3.14"
+
+[project.scripts]
+flare = "flare:main.main"
+
+[build-system]
+requires = ["setuptools >= 83.0.0"]
+build-backend = "setuptools.build_meta"

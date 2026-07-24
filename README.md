@@ -1,6 +1,8 @@
 # flare
 Read Flarum discussions in your Terminal
 
+**IMPORTANT:** This is just a stub at the moment, and cannot be used yet!
+
 ## Rationale
 
 This project was inspired by [this project](https://github.com/JohnnyLoansEsquire/Flarum_Discussion_Downloader)'s concept.  
