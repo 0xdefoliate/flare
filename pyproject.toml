@@ -1,6 +1,7 @@
 [project]
 name = "flare"
 description = "Read Flarum discussions in your Terminal"
+version = "0.0.1-dev"
 
 authors = [
     { name = "Axel H. Karlsson", email = "git@axelkarlsson.se" }
