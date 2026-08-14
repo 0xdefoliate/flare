@@ -1,30 +1,31 @@
+#  Copyright (c) 2026 Axel H. Karlsson and contributors.
+#
+#  You may use the source-code in accordance with the licence found
+#  in the LICENSE file, available in the project's root directory.
+
 import os
 import subprocess
-import platform
+import sys
 
 from pathlib import Path
 
-from flare.renderer import renderer
-from flare.sandbox import SEATBELT_PROFILE
+from flare.sandbox import Sandbox, SandboxError
+
 
 def main() -> None:
-    script_dir = Path(os.path.dirname(__file__))
-    entrypoint_path = script_dir / "renderer" / "renderer.py"
+    args = sys.argv[1:]
+    target = Path(os.path.dirname(__file__)) / "renderer.py"
 
-    if platform.system() == 'Darwin':
-        subprocess.run([
-            "sandbox-exec",
-            "-p",
-            SEATBELT_PROFILE,
-            "-D",
-            f"ENTRYPOINT={str(entrypoint_path)}",
-            str(entrypoint_path)
-        ])
-    else:
-        print("You are running this program unsandboxed which may decrease security somewhat.")
-        print()
-        print("Sandboxing is currently only supported on macOS, so please contribute if you want")
-        print("other platforms to be supported as well.")
+    sandbox = Sandbox(target)
 
-        renderer.renderer()
+    try:
+        sandbox.launch(args)
+    except SandboxError:
+        print("It seems like Flare doesn't support sandboxing your platform yet...")
+        print("Would you still like to use it, despite increased security risks?")
+        reply = input("type 'YES' to run unsandboxed: ")
 
+        if reply != "YES":
+            return sys.exit(0)
+
+        subprocess.run([str(target), *args])

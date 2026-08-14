@@ -1,0 +1,6 @@
+<component name="CopyrightManager">
+  <copyright>
+    <option name="notice" value="Copyright (c) &amp;#36;originalComment.match(&quot;Copyright \(c\) (\d+)&quot;, 1, &quot;-&quot;, &quot;&amp;#36;today.year&quot;)&amp;#36;today.year Axel H. Karlsson and contributors.&#10;&#10;You may use the source-code in accordance with the licence found &#10;in the LICENSE file, available in the project's root directory." />
+    <option name="myName" value="flare" />
+  </copyright>
+</component>
