@@ -7,60 +7,170 @@
 
 import sys
 from dataclasses import dataclass
+from typing import List, Any, Callable
 
-from flare.core.const import Discussion
+from flare.core.const import Discussion, Post
 from flare.core.flare import Flare
-from flare.painter.pages import MainPage, DiscussionPage
-from flare.painter.util import clear_screen
+from flare.ui.components import Header, ScrollableList, ScrollableListCallback
+from flare.ui.core import Screen, Page, Text, Navigator
+from flare.ui.html import FlareHTMLParser
 
 
 @dataclass
-class DiscussionLoader:
-    """Manages lazy loading a given discussion and keeps track of what's been loaded."""
+class ApplicationState:
+    server: str
+    discussions: List[Discussion]
+    posts: List[Post]
+
+    update_discussions: Callable[[ApplicationState], None]
+    update_posts: Callable[[ApplicationState, Discussion], None]
+
+
+def reflect_scroll_indicator(y: int, header: Header, screen: Screen) -> None:
+    if y > 0:
+        header.indicator = "[SCROLL]"
+    else:
+        header.indicator = None
+
+    header.render(screen)
+
+    screen.refresh([header])
+
+
+class DiscussionPage(Page):
+    app: ApplicationState
 
     discussion: Discussion
-    flare: Flare
 
-    counter: tuple[int, int]
-    step: int
+    header: Header
+    select: ScrollableList
 
-    def __init__(self, flare: Flare, discussion: Discussion, step: int = 4):
-        self.counter = (0, step)
-        self.step = step
+    class Callback(ScrollableListCallback):
+        def __init__(self, data: dict[str, Any]):
+            self.data = data
 
-        self.flare = flare
+        def on_quit(self) -> bool:
+            self.data["page"].navigator.restart()
+            return True
+
+        def on_select(self, index: int) -> bool:
+            return False
+
+        def on_scroll(self, y: int) -> None:
+            reflect_scroll_indicator(
+                y, self.data["page"].header, self.data["page"].screen
+            )
+
+    def __init__(
+        self,
+        screen: Screen,
+        discussion: Discussion,
+        app: ApplicationState,
+        navigator: Navigator,
+    ):
+        super().__init__(screen, [], navigator)
+
         self.discussion = discussion
+        self.app = app
 
-    def maybe_load_first(self) -> None:
-        if self.counter[0] > 0:
-            return
+        self.header = Header(Text(discussion.title))
 
-        try:
-            to_load = [self.discussion.post_ids[0]]
-        except IndexError:
-            return
-
-        post = self.flare.posts(to_load)
-
-        self.discussion.posts.extend(post)
-
-        # we have read one post, so update the counter.
-        self.counter = (1, self.step + 1)
-
-    def load_more(self) -> None:
-        start = self.counter[0]
-        end = (
-            -1 if self.counter[1] >= len(self.discussion.post_ids) else self.counter[1]
+        self.select = ScrollableList(
+            items=[],
+            callbacks=self.Callback({"page": self}),
         )
 
-        if start >= len(self.discussion.post_ids):
-            return
+        self.areas = [self.header, self.select]
 
-        to_load = self.discussion.post_ids[start:end]
-        posts = self.flare.posts(to_load)
+    def render(self) -> None:
+        self.app.update_posts(self.app, self.discussion)
+        self.select.clean()
 
-        self.discussion.posts.extend(posts)
-        self.counter = (self.counter[0] + self.step, self.counter[1] + self.step)
+        posts = []
+
+        i = 0
+        for entry in self.discussion.posts:
+            parser = FlareHTMLParser()
+            parser.feed(entry.text)
+
+            output = parser.output
+            output = f"%B{entry.author.username}:%b\n{output.strip()}"
+
+            posts.append(output)
+
+            i += 1
+
+        post_heights = [str(item).count("\n") for item in posts]
+        height: int = 0
+
+        for post_height in post_heights:
+            height += post_height
+
+        self.select = ScrollableList(
+            items=[post + "\n\n" for post in posts if post != ""],
+            callbacks=self.Callback({"page": self}),
+        )
+
+        self.areas = [self.header, self.select]
+
+        super().render()
+
+
+class MainPage(Page):
+    app: ApplicationState
+
+    header: Header
+    select: ScrollableList
+
+    navigator: Navigator
+
+    title: Text
+    indicator: str | None
+
+    class Callback(ScrollableListCallback):
+        def __init__(self, data: dict[str, Any]):
+            self.data = data
+
+        def on_quit(self) -> bool:
+            self.data["page"].screen.destroy()
+            sys.exit(0)
+
+        def on_select(self, index: int) -> bool:
+            discussion = self.data["page"].app.discussions[index]
+
+            self.data["page"].navigator.navigate(
+                to=DiscussionPage(
+                    screen=self.data["page"].screen,
+                    discussion=discussion,
+                    app=self.data["page"].app,
+                    navigator=self.data["page"].navigator,
+                )
+            )
+
+            return True
+
+        def on_scroll(self, y: int) -> None:
+            reflect_scroll_indicator(
+                y, self.data["page"].header, self.data["page"].screen
+            )
+
+    def __init__(self, screen: Screen, app: ApplicationState):
+        super().__init__(screen, [], Navigator(self, screen))
+
+        self.app = app
+
+        self.title = Text(f"Welcome to %B{self.app.server}%b!")
+        self.indicator = None
+
+        self.header = Header(self.title)
+
+        self.select = ScrollableList(
+            items=[discussion.title for discussion in app.discussions],
+            callbacks=self.Callback({"page": self}),
+            selectable=True,
+        )
+
+        self.areas = [self.header, self.select]
 
 
 def renderer() -> None:
@@ -78,30 +188,26 @@ def renderer() -> None:
     flare = Flare(server)
     discussions = flare.discussions()
 
-    main_page = MainPage(server, discussions)
+    screen = Screen()
 
-    # The `main_page.render()` method returns an integer, which is the
-    # index of a given discussion in `discussions`, if non-zero, it means
-    # that the user didn't provide an integer, and the program will end.
-    #
-    # In other words, it will keep rendering the main page as a side effect
-    # until the user stops entering a valid integer.
-    while (index := main_page.render()) >= 0:
-        try:
-            loader = DiscussionLoader(flare, discussions[index], step=2)
-        except IndexError:
-            continue
+    def update_discussions(state: ApplicationState) -> None:
+        # no-op for now.
+        pass
 
-        flare.update_discussion(loader.discussion)
-        loader.maybe_load_first()  # load the first thread post (OP's post)
+    def update_posts(state: ApplicationState, discussion: Discussion) -> None:
+        flare.update_discussion(discussion)
+        discussion.posts = flare.posts(discussion.post_ids)
 
-        discussion_page = DiscussionPage(loader.discussion)
+    state = ApplicationState(
+        server,
+        discussions=discussions,
+        posts=[],
+        update_discussions=update_discussions,
+        update_posts=update_posts,
+    )
 
-        # This loop runs while the user keeps entering any key (which isn't "q").
-        while discussion_page.render():
-            loader.load_more()
-
-    clear_screen()
+    main_page = MainPage(screen, state)
+    main_page.render()
 
 
 if __name__ == "__main__":
