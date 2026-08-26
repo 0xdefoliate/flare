@@ -6,8 +6,10 @@
 (version 1)
 (deny default)
 
+(import "system.sb")
+
 ; +--------------------------------------------------------------------------------+
-; |  All contents of the `network.sb` file in this directory gets inserted here.   |
+; |   All contents of the other `.sb` files in this directory get inserted here.   |
 ; +--------------------------------------------------------------------------------+
 
 ; Note that this only allows reading metadata, not contents of files themselves.
@@ -34,3 +36,6 @@
 ; TODO: Make these rules more specific as well!
 (allow process-fork)
 (allow process-exec)
+
+; Required for ncurses
+(allow file-ioctl (regex #"^/dev/ttys[0-9]+"))

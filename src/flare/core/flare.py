@@ -2,7 +2,6 @@
 #
 #  You may use the source-code in accordance with the licence found
 #  in the LICENSE file, available in the project's root directory.
-import requests.utils
 from typing import List
 
 from flare.core.api import FlarumAPI

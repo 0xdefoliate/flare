@@ -6,7 +6,6 @@
 import os
 import subprocess
 import sys
-
 from pathlib import Path
 
 from flare.sandbox import Sandbox, SandboxError
