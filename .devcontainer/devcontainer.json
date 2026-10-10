@@ -1,0 +1,17 @@
+
+{
+    "name": "Flare DevContainer",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "privileged": false,
+    "remoteUser": "developer",
+    "containerUser": "developer",
+    "runArgs": [
+        "--security-opt", "no-new-privileges",
+        "--cap-drop", "all",
+        "--cap-add", "CHOWN",
+        "--cap-add", "FOWNER",
+        "--cap-add", "KILL",
+    ]
+}

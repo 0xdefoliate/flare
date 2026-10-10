@@ -2,11 +2,12 @@
 #
 #  You may use the source-code in accordance with the licence found
 #  in the LICENSE file, available in the project's root directory.
-
+import os
 from dataclasses import dataclass
 from typing import List
 
-import requests
+import certifi
+from urllib3 import PoolManager
 
 
 @dataclass
@@ -25,6 +26,8 @@ class FlarumAPI:
     endpoint: str
     cache: Cache
 
+    http: PoolManager
+
     def __init__(self, endpoint: str):
         if not endpoint.endswith("/api"):
             raise ValueError("The Flarum API endpoint must end with /api")
@@ -33,31 +36,37 @@ class FlarumAPI:
 
         self.endpoint = endpoint
         self.cache = Cache()
+        self.http = PoolManager(
+            cert_reqs="CERT_REQUIRED",
+            ca_certs=certifi.where()
+        )
 
     def discussions(self) -> dict:
         """List all discussions."""
 
-        response = requests.get(f"{self.endpoint}/discussions")
+        response = self.http.request("GET", f"{self.endpoint}/discussions")
         return response.json()
 
     def discussion(self, slug: str) -> dict:
         """Get specified discussion by its URL slug."""
 
-        response = requests.get(
-            f"{self.endpoint}/discussions/{slug}", params={"bySlug": True}
+        response = self.http.request(
+            "GET",
+            f"{self.endpoint}/discussions/{slug}", fields={"bySlug": "true"}
         )
+
         return response.json()
 
     def posts(self, ids: List[str]) -> dict:
         """Get all posts by their respective ids."""
 
-        response = requests.get(
-            # We are forced to do this ugly method of putting a string instead of a
-            # dictionary into `params` because `requests` otherwise encodes those.
-            # Which, normally, is a good thing, but Flarum does not like the query
+        response = self.http.request(
+            "GET",
+            # We are forced to do this ugly method of inserting query parameters directly
+            # into the URL instead of relying on the better `fields` parameter.
+            # URL encoding is normally a good thing, but Flarum does not like the query
             # parameters being encoded here for some reason...
-            f"{self.endpoint}/posts",
-            params=f"filter[id]={",".join(ids)}",
+            f"{self.endpoint}/posts?filter[id]={','.join(ids)}",
         )
 
         return response.json()
@@ -68,7 +77,7 @@ class FlarumAPI:
         if uid in self.cache.users:
             return self.cache.users[uid]
 
-        response = requests.get(f"{self.endpoint}/users/{uid}")
+        response = self.http.request("GET", f"{self.endpoint}/users/{uid}")
         json = response.json()
 
         self.cache.users[uid] = json
