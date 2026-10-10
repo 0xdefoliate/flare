@@ -33,7 +33,7 @@ A more sophisticated installation procedure for more convenient use is planned s
 To improve the runtime security of this application, the application intends to be run sandboxed.
 However, as of the time of writing, only sandboxing on macOS is supported.
 
-You can see what gets enforced in `src/sandbox/macos`.
+You can see what gets enforced in `src/flare/sandbox_policy/macos`.
 
 Sandboxing for other operating systems is planned.
 

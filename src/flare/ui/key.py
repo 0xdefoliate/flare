@@ -30,8 +30,11 @@ def get_key(value: str) -> Key | str:
     if value == "KEY_DOWN":
         return Key.ARROW_DOWN
 
-    # 27 here means ESC.
-    if ord(value) == 27 or value == "q":
-        return Key.QUIT
+    try:
+        # 27 here means ESC key.
+        if ord(value) == 27 or value == "q":
+            return Key.QUIT
+    except TypeError:
+        pass
 
     return value
